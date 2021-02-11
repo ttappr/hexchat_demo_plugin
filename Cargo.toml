@@ -1,0 +1,16 @@
+[package]
+name = "hexchat_demo_plugin"
+version = "0.1.0"
+authors = ["ttappr <tmtappr@gmail.com>"]
+edition = "2018"
+
+[lib]
+name = "hexchat_demo_plugin"
+crate-type = ["cdylib"]
+
+[dependencies]
+hexchat_api = { path = "../hexchat_api" }
+libc = "0.2.84"
+backtrace = "0.3"
+thread-id = "3.3"
+
