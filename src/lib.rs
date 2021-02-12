@@ -1,17 +1,11 @@
-#![allow(dead_code)]
-#![allow(unused_variables, unused_imports)]
+
+#![allow(unused_variables)]
 
 //! This is an example for how a plugin can be written using the hexchat_plugin
-//! library. The library is still in early development, but the plan is to
-//! have it as a static lib that can be linked in to plugin projects similar
-//! to this example.
+//! library. The hexchat_api library is still in early development.
 
 /* EXAMPLE PLUGIN USING RUST HEXCHAT API */
 
-// Note: The module files have to be listed in lib.rs for the compiler to
-//       locate them. Otherwise hexchat.rs can't access hook.rs for example.
-
-//#[macro_use]
 extern crate hexchat_api;
 
 use hexchat_api::*;
@@ -31,14 +25,16 @@ dll_entry_points!( plugin_get_info,
                    plugin_init, 
                    plugin_deinit );
 
-// Plugins have to implement this function to register their info.
+// Plugins have to implement an info that function that returns a pinned
+// `PluginInfo` object. This is used to register the plugin and display
+// information on it in the "Plugins and Scripts" window, among other things.
 fn plugin_get_info() -> Pin<Box<PluginInfo>>
 {
     // The `PluginInfo` constructor returns a pinned/boxed instance that can be
     // returned as-is from this function.
     PluginInfo::new("RustPlugin", 
                     "0.1", 
-                    "My Rust Plugin")
+                    "My Rust Hexchat Plugin")
 }
 
 // This is this library's version of the `hexchat_init()` exported function.
@@ -267,7 +263,7 @@ fn plugin_init(hexchat: &Hexchat) -> i32
             hc.print("Channel User List");
             hc.print("-----------------");
 
-            if let Ok(list) = ListIterator::new("users") {
+            if let Some(list) = ListIterator::new("users") {
                 let mut count = 0;
                 let mut val;
                 let     fields = list.get_field_names();
@@ -311,7 +307,7 @@ fn plugin_init(hexchat: &Hexchat) -> i32
         Priority::Norm,
 
         |hc, word, word_eol, ud| {
-            if let Ok(list) = ListIterator::new("users") {
+            if let Some(list) = ListIterator::new("users") {
                 list.traverse(
                     // `traverse()` takes a visitor callback to receive data.
                     |field_name, value, is_new_rec| {
@@ -360,7 +356,9 @@ fn plugin_init(hexchat: &Hexchat) -> i32
                                Invoking: `hc.emit_print(\"{}\", &{:?})`",
                               event_type, slice));
             // Send it!
-            hc.emit_print(event_type, slice);
+            if let Err(err) = hc.emit_print(event_type, slice) {
+                hc.print(&format!("{}", err));
+            } else {}
 
             Eat::All
         },
