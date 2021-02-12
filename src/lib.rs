@@ -14,7 +14,6 @@ use hexchat_api::FieldValue::*;
 use std::any::Any;
 use std::thread;
 use std::cell::RefCell;
-use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Arc; 
 use thread_id;
@@ -28,7 +27,7 @@ dll_entry_points!( plugin_get_info,
 // Plugins have to implement an info that function that returns a pinned
 // `PluginInfo` object. This is used to register the plugin and display
 // information on it in the "Plugins and Scripts" window, among other things.
-fn plugin_get_info() -> Pin<Box<PluginInfo>>
+fn plugin_get_info() -> PinnedPluginInfo
 {
     // The `PluginInfo` constructor returns a pinned/boxed instance that can be
     // returned as-is from this function.
@@ -358,11 +357,11 @@ fn plugin_init(hexchat: &Hexchat) -> i32
             // Send it!
             if let Err(err) = hc.emit_print(event_type, slice) {
                 hc.print(&format!("{}", err));
-            } else {}
+            }
 
             Eat::All
         },
-
+        
         "Sends event using `hexchat.emit_print()`.",
         None);
 
