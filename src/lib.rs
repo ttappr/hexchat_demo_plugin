@@ -39,6 +39,7 @@ fn plugin_get_info() -> PinnedPluginInfo
 // This is this library's version of the `hexchat_init()` exported function.
 fn plugin_init(hexchat: &Hexchat) -> i32
 {
+
     // A variable that can be moved into closures.
     let mut i = 1;
 
@@ -48,12 +49,11 @@ fn plugin_init(hexchat: &Hexchat) -> i32
                    word_eol : &[String], 
                    ud       : &mut Option<Box<dyn Any>>| 
             {
-                hc.print("\x0313[example[5|6]]\tCopied closure.");
-                hc.print(&format!("\x0311#word\t{:?}", word));
-                hc.print(&format!("\x0309#word_eol\t{:?}", 
-                                  word_eol));
+                outp!(hc, "\x0313[example[5|6]]\tCopied closure.");
+                outp!(hc, "\x0311#word\t{:?}", word);
+                outp!(hc, "\x0309#word_eol\t{:?}", word_eol);
                 i += 1;
-                hc.print(&format!("i = {}", i));
+                outp!(hc, "i = {}", i);
                 Eat::All
              };
 
@@ -68,10 +68,9 @@ fn plugin_init(hexchat: &Hexchat) -> i32
     hexchat.hook_command("Example2",
                          Priority::Norm,
                          |hc, word, word_eol, ud| {
-                            hc.print("\x0313[example2]\tYay! It works!");
-                            hc.print(&format!("\x0311#word\t{:?}", word));
-                            hc.print(&format!("\x0309#word_eol\t{:?}", 
-                                              word_eol));
+                            outp!(hc, "\x0313[example2]\tYay! It works!");
+                            outp!(hc, "\x0311#word\t{:?}", word);
+                            outp!(hc, "\x0309#word_eol\t{:?}", word_eol);
                             Eat::All
                          },
                          "An example command implemented using a closure.",
@@ -90,7 +89,7 @@ fn plugin_init(hexchat: &Hexchat) -> i32
     hexchat.hook_command("Example4",
                          Priority::Norm,
                          move |hc, word, word_eol, ud| {
-                            hc.print(&format!("\x0313[example4]\t {}", i));
+                            outp!(hc, "\x0313[example4]\t {}", i);
                             i += 1;
                             Eat::All
                          },
@@ -125,12 +124,12 @@ fn plugin_init(hexchat: &Hexchat) -> i32
             let timer_hook = &mut *shared_hook_1.borrow_mut();
 
             if timer_hook.is_some() {
-                hc.print("Timer is already running.");
+                outp!(hc, "Timer is already running.");
                 return Eat::All;
             }
-            hc.print("\x0311[timer]\t\
-                      Setting up timer callback. Issue /STOPTIMER to stop it \
-                      early, or it will stop automatically after 10  times.");
+            outp!(hc, "\x0311[timer]\t\
+                       Setting up timer callback. Issue /STOPTIMER to stop it \
+                       early, or it will stop automatically after 10  times.");
 
             // Timer callback needs a copy of the hook var from this scope.
             let shared_hook_cb = shared_hook_1.clone();
@@ -143,7 +142,7 @@ fn plugin_init(hexchat: &Hexchat) -> i32
                     if let Some(n) = ud {
                         // Shows how to mutably access the user_data.
                         let n = n.downcast_mut::<i32>().unwrap();
-                        hc.print(&format!("timer user data = {}.", n));
+                        outp!(hc, "timer user data = {}.", n);
                         *n += 1;
                         if *n > 10 {
                             let my_hook = &mut *shared_hook_cb.borrow_mut();
@@ -151,7 +150,7 @@ fn plugin_init(hexchat: &Hexchat) -> i32
                             return 0; // Causes timer to stop.
                         }
                     }
-                    hc.print("\x0311[timer]\tTimer callback invoked.");
+                    outp!(hc, "\x0311[timer]\tTimer callback invoked.");
                     1 // Keep going.
                 },
 
@@ -171,8 +170,8 @@ fn plugin_init(hexchat: &Hexchat) -> i32
         Priority::Norm,
 
         move |hc, word, word_eol, ud| {
-            hc.print("\x0313[stoptimer]\t\
-                      Stopping timer callback, and printing its user data.");
+            outp!(hc, "\x0313[stoptimer]\t\
+                       Stopping timer callback, and printing its user data.");
 
             let mut timer_user_data = None;
             let     timer_hook      = &mut *shared_hook_2.borrow_mut();
@@ -185,12 +184,12 @@ fn plugin_init(hexchat: &Hexchat) -> i32
 
             if let Some(n) = timer_user_data {
                 if let Some(n) = n.downcast_ref::<i32>() {
-                    hc.print(&format!("timer callback's user_data: {}", n));
+                    outp!(hc, "timer callback's user_data: {}", n);
                 }
             } else {
-                hc.print("timer callback's user_data was `None`.");
-                hc.print("The timer either already expired, or /STOPTIMER has \
-                          already been called.");
+                outp!(hc, "timer callback's user_data was `None`.");
+                outp!(hc, "The timer either already expired, or /STOPTIMER has \
+                           already been called.");
             }
             Eat::All
         },
@@ -216,34 +215,29 @@ fn plugin_init(hexchat: &Hexchat) -> i32
         Priority::Norm,
 
         |hc, word, word_eol, ud| {
-            fn safe_print(msg: &str) {
-                let rc_msg = Arc::new(msg.to_string());
-                main_thread(move |hc| hc.print(&rc_msg));
-            }
             // Spawn a new thread.
             thread::spawn(|| {
                 let tid = thread_id::get();
-                safe_print(&format!("{}[spawned-thread]\t\
-                                    Hello, from spawned thread {}.",
-                                    "\x0313", tid));
+                outpth!(hc, "{}[spawned-thread]\t\
+                             Hello, from spawned thread {}.", "\x0313", tid);
                 // Send a task to the main thread to have executed and get its
                 // AsyncResult object.
                 let ar = main_thread(
                     move |hc| {
                         let main_tid = thread_id::get();
-                        hc.print(&format!("{}[main-thread]\t\
-                                           Hello, from main thread {}.",
-                                          "\x0313", main_tid));
+                        outp!(hc, "{}[main-thread]\t\
+                                   Hello, from main thread {}.", 
+                                  "\x0313", main_tid);
                         // Return data to the calling thread.
                         format!("{}THREAD {} RETURNED THIS DATA TO THREAD {}.",
                                 "\x0311", main_tid, tid)
                     });
                 // Get the return data from the main thread callback (blocks).
                 let r = ar.get();
-                safe_print(&format!("{}[spawned-thread]\t\
-                                     The previous command ran on the main \
-                                     thread and returned this string: {}",
-                                    "\x0313", r));
+                outpth!(hc, "{}[spawned-thread]\t\
+                             The previous command ran on the main \
+                             thread and returned this string: {}",
+                            "\x0313", r);
             });
             Eat::All
         },
@@ -259,8 +253,8 @@ fn plugin_init(hexchat: &Hexchat) -> i32
         Priority::Norm,
 
         |hc, word, word_eol, ud| {
-            hc.print("Channel User List");
-            hc.print("-----------------");
+            outp!(hc, "Channel User List");
+            outp!(hc, "-----------------");
 
             if let Some(list) = ListIterator::new("users") {
                 let mut count = 0;
@@ -273,7 +267,7 @@ fn plugin_init(hexchat: &Hexchat) -> i32
                         if let StringVal(n) = item.get_field("nick").unwrap()
                         { n } else { "????".to_string() } };
 
-                    hc.print(&format!("[{}]", user_name));
+                    outp!(hc, "[{}]", user_name);
 
                     for field in fields {
                         match item.get_field(&field).unwrap() {
@@ -281,18 +275,17 @@ fn plugin_init(hexchat: &Hexchat) -> i32
                             IntVal(i)    => { val = i.to_string();        },
                             any          => { val = format!("{:?}", any); },
                         }
-                        hc.print(&format!("    {:10}: {}", field, val));
+                        outp!(hc, "    {:10}: {}", field, val);
                     }
                 }
                 if count != 0 {
-                    hc.print(&format!("Listed {} members in this channel.",
-                                      count));
+                    outp!(hc, "Listed {} members in this channel.", count);
                 } else {
-                    hc.print("Looks like there were no users to list. \
-                              This can happen with private message channels.");
+                    outp!(hc, "Looks like there were no users to list. \
+                               This can happen with private message channels.");
                 }
             } else {
-                hc.print("Unable to retrieve user list for channel.");
+                outp!(hc, "Unable to retrieve user list for channel.");
             }
             Eat::All
         },
@@ -311,9 +304,9 @@ fn plugin_init(hexchat: &Hexchat) -> i32
                     // `traverse()` takes a visitor callback to receive data.
                     |field_name, value, is_new_rec| {
                         if is_new_rec {
-                            hc.print("-----------------------------");
+                            outp!(hc, "-----------------------------");
                         }
-                        hc.print(&format!("{:10}: {:?}", field_name, value));
+                        outp!(hc, "{:10}: {:?}", field_name, value);
 
                         true // Keep going.
                     })
@@ -335,8 +328,8 @@ fn plugin_init(hexchat: &Hexchat) -> i32
         Priority::Highest,
 
         |hc, word, ud| {
-            hc.print(&format!("\x0313[receive-event]\t\
-                               Received word data: {:?}", word));
+            outp!(hc, "\x0313[receive-event]\t\
+                       Received word data: {:?}", word);
             Eat::All
         },
 
@@ -351,18 +344,61 @@ fn plugin_init(hexchat: &Hexchat) -> i32
             let args: Vec<_> = word.iter().map(String::as_str).collect();
             let slice = &args[1..];
 
-            hc.print(&format!("\x0311[send-event]\t\
-                               Invoking: `hc.emit_print(\"{}\", &{:?})`",
-                              event_type, slice));
+            outp!(hc, "\x0311[send-event]\t\
+                       Invoking: `hc.emit_print(\"{}\", &{:?})`",
+                      event_type, slice);
             // Send it!
             if let Err(err) = hc.emit_print(event_type, slice) {
-                hc.print(&format!("{}", err));
+                outp!(hc, "{}", err);
             }
 
             Eat::All
         },
-        
+
         "Sends event using `hexchat.emit_print()`.",
+        None);
+
+    hexchat.hook_command(
+        "context",
+        Priority::Norm,
+        |hc, word, word_eol, ud| {
+            if word.len() > 2 {
+                if let Some(context) = Context::find(&word[1], &word[2]) {
+                    outp!(hc, "Issuing /emitevent {} {} => {}",
+                              word[1], word[2], context);
+                    match context.command(&format!("emitevent {} {}", 
+                                                   word[1], word[2])) {
+                        Ok(_)  => outp!(hc, "Command succeeded."),
+                        Err(e) => outp!(hc, "Command failed: {}", e),
+                    }
+                } else {
+                    outp!(hc, "Couldn't get Contex.");
+                }
+            } else {
+                outp!(hc, "/context needs at least 2 arguments.");
+            }
+            Eat::All
+        },
+        "Sends /emitevent <network> <channel> using the associated context.",
+        None);
+
+    hexchat.hook_command(
+        "channellist",
+        Priority::Norm,
+        |hc, word, word_eol, ud| {
+            if let Some(list) = ListIterator::new("channels") {
+                list.traverse(|field, value, b| {
+                    if b {
+                        outp!(hc, "---------------------------");
+                    } else {
+                        outp!(hc, "{:10} : {}", field, value);
+                    }
+                    true
+                });
+            }
+            Eat::All
+        },
+        "Lists the channels and all the fields of each record.",
         None);
 
     1
@@ -381,16 +417,16 @@ fn example (hc          : &Hexchat,
             user_data   : &mut Option<Box<dyn Any>> 
            ) -> Eat 
 {
-    hc.print("\x0313[example]\tExecuting example command.");
-    hc.print(&format!("\x0311#word\t{:?}", word));
-    hc.print(&format!("\x0309#word_eol\t{:?}", word_eol));
+    outp!(hc, "\x0313[example]\tExecuting example command.");
+    outp!(hc, "\x0311#word\t{:?}", word);
+    outp!(hc, "\x0309#word_eol\t{:?}", word_eol);
     
     // How to access data within user_data.
     if let Some(ud) = user_data {
         if let Some(msg) = ud.downcast_ref::<&str>() {
-            hc.print(&format!("User data received: {:?}", msg));
+            outp!(hc, "User data received: {:?}", msg);
         } else {
-            hc.print("Received user_data, but it's not a &str");
+            outp!(hc, "Received user_data, but it's not a &str");
         }
     }
     Eat::All
@@ -412,9 +448,9 @@ impl MyObj {
                        user_data : &mut Option<Box<dyn Any>>
                       ) -> Eat
     {
-        hc.print(&format!("\x0311[MyObj.method]\t\
-                           Called an object method! self.data = {}.", 
-                           self.data));
+        outp!(hc, "\x0311[MyObj.method]\t\
+                   Called an object method! self.data = {}.", 
+                  self.data);
         Eat::All
     }
 }
