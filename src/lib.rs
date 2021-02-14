@@ -222,7 +222,7 @@ fn plugin_init(hexchat: &Hexchat) -> i32
                              Hello, from spawned thread {}.", "\x0313", tid);
                 // Send a task to the main thread to have executed and get its
                 // AsyncResult object.
-                let ar = main_thread(
+                let ar = main_thread_once(
                     move |hc| {
                         let main_tid = thread_id::get();
                         outp!(hc, "{}[main-thread]\t\
@@ -366,8 +366,8 @@ fn plugin_init(hexchat: &Hexchat) -> i32
                 if let Some(context) = Context::find(&word[1], &word[2]) {
                     outp!(hc, "Issuing /emitevent {} {} => {}",
                               word[1], word[2], context);
-                    match context.command(&format!("emitevent {} {}", 
-                                                   word[1], word[2])) {
+                    let msg = format!("emitevent {} {}", word[1], word[2]);
+                    match context.command(&msg) {
                         Ok(_)  => outp!(hc, "Command succeeded."),
                         Err(e) => outp!(hc, "Command failed: {}", e),
                     }
@@ -382,6 +382,7 @@ fn plugin_init(hexchat: &Hexchat) -> i32
         "Sends /emitevent <network> <channel> using the associated context.",
         None);
 
+    // TODO - Find out why Context is printing itself inside itself...
     hexchat.hook_command(
         "channellist",
         Priority::Norm,
@@ -391,7 +392,7 @@ fn plugin_init(hexchat: &Hexchat) -> i32
                     if b {
                         outp!(hc, "---------------------------");
                     } else {
-                        outp!(hc, "{:10} : {}", field, value);
+                        outp!(hc, "{:12} : {}", field, value);
                     }
                     true
                 });
@@ -400,6 +401,103 @@ fn plugin_init(hexchat: &Hexchat) -> i32
         },
         "Lists the channels and all the fields of each record.",
         None);
+
+    let fake_plugin   = Rc::new(RefCell::new(None));
+    let fake_plugin_1 = fake_plugin.clone(); // For /REGPL
+    let fake_plugin_2 = fake_plugin.clone(); // For /REMPL
+
+    hexchat.hook_command(
+        "regpl",
+        Priority::Norm,
+        move |hc, word, word_eol, ud| {
+            outp!(hc, "Creating fake-plugin.");
+            let plugin = Plugin::new("fake-plugin-file.so",
+                                     "fake-plugin",
+                                     "A fictitious plugin.",
+                                     "1.0");
+            let pi = &mut *fake_plugin_1.borrow_mut();
+            if pi.is_none() {
+                *pi = Some(plugin);
+            }
+            Eat::All
+        },
+        "Registers a fictitious plugin. Remove with /REMPL.",
+        None);
+
+    hexchat.hook_command(
+        "rempl",
+        Priority::Norm,
+        move |hc, word, word_eol, ud| {
+            outp!(hc, "Removing fake-plugin.");
+            let pi = &mut *fake_plugin_2.borrow_mut();
+            *pi = None;
+            Eat::All
+        },
+        "Removes the fictitious plugin that was registered with /REGPL.",
+        None);
+
+    hexchat.hook_command(
+        "getpref",
+        Priority::Norm,
+        move |hc, word, word_eol, ud| {
+            if let Some(result) = hc.get_prefs(&word[1]) {
+                outp!(hc, "{:20} : {:?}", word[1], result);
+            } else {
+                outp!(hc, "{:20} : None", word[1]);
+            }
+            Eat::All
+        },
+        "Retrieves a pref value.",
+        None);
+
+    hexchat.hook_command(
+        "listprefs",
+        Priority::Norm,
+        move |hc, word, word_eol, ud| {
+            if let Some(result) = hc.pluginpref_list() {
+                outp!(hc, "Plugin Prefs : {:?}", result);
+            } else {
+                outp!(hc, "Plugin Prefs : <not available>");
+            }
+            Eat::All
+        },
+        "Gets the list of plugin prefs.",
+        None);
+
+    use PrefValue as PV;
+
+    hexchat.hook_command(
+        "setpref",
+        Priority::Norm,
+        |hc, word, word_eol, ud| {
+            let val = match word[2].as_str() {
+                "s" => { PV::StringVal(word[3].clone()) },
+                "i" => { PV::IntegerVal(word[3].parse::<i32>().unwrap()) },
+                "b" => { PV::BoolVal(word[3].parse::<bool>().unwrap()) },
+                _   => { panic!("You need to use s, i, or b") },
+            };
+            hc.pluginpref_set(&word[1], &val);
+            Eat::All
+        },
+        "Sets a plugin pref.",
+        None);
+
+    hexchat.hook_command( 
+        "getpref",
+        Priority::Norm,
+        |hc, word, word_eol, ud| {
+            if let Some(pref) = hc.pluginpref_get(&word[1]) {
+                outp!(hc, "The value was: {:?}", pref);
+            } else {
+                outp!(hc, "The operation failed!");
+            }
+            Eat::All
+        },
+        "Gets a plugin pref.",
+        None);
+        
+    // TODO - Figure out how to detect and handle case where plugin author
+    //        overwrote one of their commands with a new one.
 
     1
 }
